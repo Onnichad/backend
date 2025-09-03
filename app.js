@@ -1,15 +1,16 @@
 const express = require("express");
 
 const app = express();
+
 const mongoose = require("mongoose");
 mongoose
   .connect(
-    "mongodb+srv://<chris>:<Darsin84130>@cluster0.pimyc5o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+    "mongodb+srv://treilchristopher_db_user:chris123@cluster0.pimyc5o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+
     { useNewUrlParser: true, useUnifiedTopology: true }
   )
   .then(() => console.log("Connexion à MongoDB réussie !"))
   .catch(() => console.log("Connexion à MongoDB échouée !"));
-
 app.use(express.json());
 
 app.use((req, res, next) => {
