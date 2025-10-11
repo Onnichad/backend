@@ -1,15 +1,16 @@
-const jwt = require("jsonwebtoken");
+const jwt = require('jsonwebtoken');
 
 module.exports = (req, res, next) => {
   try {
-    const token = req.headers.authorization.split(" ")[1];
-    const decodedToken = jwt.verify(token, "RANDOM_TOKEN_SECRET");
-    const userId = decodedToken.userId;
-    req.auth = {
-      userId: userId,
-    };
+    const header = req.headers.authorization || '';
+    const token = header.split(' ')[1]; // "Bearer <token>"
+    if (!token) return res.status(401).json({ error: 'Missing token' });
+
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    req.auth = { userId: decoded.userId };
     next();
-  } catch (error) {
-    res.status(401).json({ error });
+  } catch (err) {
+    // renvoyer l'erreur telle quelle (exigence P7)
+    res.status(401).json(err);
   }
 };

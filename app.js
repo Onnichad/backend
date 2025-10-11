@@ -1,36 +1,35 @@
-const express = require("express");
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const path = require('path');
+
+const authRoutes = require('./routes/auth');
+const bookRoutes = require('./routes/books');
+
 const app = express();
-const mongoose = require("mongoose");
 
-const stuffRoutes = require("./routes/stuff");
-const userRoutes = require("./routes/user");
-const path = require("path");
-
+// Connexion MongoDB (URI stockée dans .env)
 mongoose
-  .connect(
-    "mongodb+srv://treilchristopher_db_user:chris123@cluster0.pimyc5o.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0",
+  .connect(process.env.MONGODB_URI, {})
+  .then(() => console.log('Connexion à MongoDB réussie !'))
+  .catch((err) => console.error('Connexion à MongoDB échouée !', err));
 
-    { useNewUrlParser: true, useUnifiedTopology: true }
-  )
-  .then(() => console.log("Connexion à MongoDB réussie !"))
-  .catch(() => console.log("Connexion à MongoDB échouée !"));
 app.use(express.json());
 
-app.use((req, res, next) => {
-  res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content, Accept, Content-Type, Authorization"
-  );
-  res.setHeader(
-    "Access-Control-Allow-Methods",
-    "GET, POST, PUT, DELETE, PATCH, OPTIONS"
-  );
-  next();
-});
+// CORS (autorise ton front, par défaut localhost:3000)
+app.use(
+  cors({
+    origin: process.env.ALLOWED_ORIGIN?.split(',') || '*',
+    credentials: true,
+  })
+);
 
-app.use("/api/stuff", stuffRoutes);
-app.use("/api/auth", userRoutes);
-app.use("/images", express.static(path.join(__dirname, "images")));
+// Routes API
+app.use('/api/auth', authRoutes);
+app.use('/api/books', bookRoutes);
+
+// Dossier statique pour les images uploadées
+app.use('/images', express.static(path.join(__dirname, 'images')));
 
 module.exports = app;
