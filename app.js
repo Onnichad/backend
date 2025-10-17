@@ -11,7 +11,11 @@ const app = express();
 
 // Connexion MongoDB (URI stockée dans .env)
 mongoose
-  .connect(process.env.MONGODB_URI, {})
+  .connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 15000,
+    retryWrites: true,
+    w: 'majority',
+  })
   .then(() => console.log('Connexion à MongoDB réussie !'))
   .catch((err) => console.error('Connexion à MongoDB échouée !', err));
 

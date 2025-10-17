@@ -2,16 +2,17 @@ const fs = require('fs');
 const path = require('path');
 const Book = require('../models/Book');
 
-const imageUrl = req.file
-  ? `${req.protocol}://${req.get('host')}/images/${req.file.filename}`
-  : existingBook.imageUrl; // vérifie si une nouvelle image a été envoyée par l’utilisateur via le champ image permet de ne pas effacer l’image actuelle quand un utilisateur met à jour un livre sans en téléverser une nouvelle
+// Helper: construit l'URL publique de l'image
+function makeImageUrl(req, filename) {
+  return `${req.protocol}://${req.get('host')}/images/${filename}`;
+}
 
 exports.getAll = async (req, res) => {
   try {
     const books = await Book.find().lean();
-    res.status(200).json(books);
+    return res.status(200).json(books);
   } catch (e) {
-    res.status(400).json(e);
+    return res.status(400).json(e);
   }
 };
 
@@ -19,9 +20,9 @@ exports.getOne = async (req, res) => {
   try {
     const book = await Book.findById(req.params.id).lean();
     if (!book) return res.status(404).json({ error: 'Not found' });
-    res.status(200).json(book);
+    return res.status(200).json(book);
   } catch (e) {
-    res.status(404).json(e);
+    return res.status(404).json(e);
   }
 };
 
@@ -31,30 +32,42 @@ exports.getBestRating = async (req, res) => {
       .sort({ averageRating: -1, _id: 1 })
       .limit(3)
       .lean();
-    res.status(200).json(books);
+    return res.status(200).json(books);
   } catch (e) {
-    res.status(400).json(e);
+    return res.status(400).json(e);
   }
 };
 
 exports.create = async (req, res) => {
   try {
-    const bookObj = JSON.parse(req.body.book);
+    // Spécification: POST /api/books attend 'book' (JSON stringifié) + 'image' (file)
+    if (!req.file) {
+      return res.status(400).json({ error: 'image file is required' });
+    }
+
+    let bookObj = {};
+    try {
+      bookObj = JSON.parse(req.body.book || '{}');
+    } catch (err) {
+      return res.status(400).json({ error: 'invalid book payload' });
+    }
+
+    // Nettoyage des champs interdits
     delete bookObj._id;
     delete bookObj.userId;
 
     const newBook = new Book({
       ...bookObj,
-      userId: req.auth.userId,
-      imageUrl: imageUrl(req, req.file.filename),
-      ratings: [],
+      userId: req.auth.userId, // force l’owner depuis le token
+      imageUrl: makeImageUrl(req, req.file.filename),
+      ratings: [], // initialisé vide
       averageRating: 0,
     });
 
     await newBook.save();
-    res.status(201).json({ message: 'Book created!' });
+    return res.status(201).json({ message: 'Book created!' });
   } catch (e) {
-    res.status(400).json(e);
+    return res.status(400).json(e);
   }
 };
 
@@ -62,36 +75,49 @@ exports.update = async (req, res) => {
   try {
     const original = await Book.findById(req.params.id);
     if (!original) return res.status(404).json({ error: 'Not found' });
-    if (original.userId !== req.auth.userId)
+    if (original.userId !== req.auth.userId) {
       return res.status(403).json({ error: 'unauthorized request' });
+    }
 
-    const hasFile = !!req.file;
-    const updates = hasFile
-      ? {
-          ...JSON.parse(req.body.book),
-          imageUrl: imageUrl(req, req.file.filename),
-        }
-      : { ...req.body };
+    let updates = {};
+    if (req.file) {
+      // Avec nouvelle image: book est JSON stringifié dans req.body.book
+      let parsed = {};
+      try {
+        parsed = JSON.parse(req.body.book || '{}');
+      } catch {
+        return res.status(400).json({ error: 'invalid book payload' });
+      }
+      updates = {
+        ...parsed,
+        imageUrl: makeImageUrl(req, req.file.filename),
+      };
 
+      // Supprimer l’ancienne image si existante
+      const oldFile = (original.imageUrl || '').split('/images/')[1];
+      if (oldFile) {
+        try {
+          fs.unlinkSync(path.join('images', oldFile));
+        } catch {}
+      }
+    } else {
+      // Sans nouvelle image: les champs sont directement dans req.body
+      updates = { ...req.body };
+      // Conserver l’ancienne imageUrl
+      if (!updates.imageUrl) updates.imageUrl = original.imageUrl;
+    }
+
+    // Champs interdits
     delete updates._id;
     delete updates.userId;
-
-    if (hasFile) {
-      const old = path.basename(original.imageUrl || '');
-      if (old) {
-        try {
-          fs.unlinkSync(path.join('images', old));
-        } catch (_) {}
-      }
-    }
 
     await Book.updateOne(
       { _id: req.params.id },
       { ...updates, _id: req.params.id }
     );
-    res.status(200).json({ message: 'Book updated!' });
+    return res.status(200).json({ message: 'Book updated!' });
   } catch (e) {
-    res.status(400).json(e);
+    return res.status(400).json(e);
   }
 };
 
@@ -99,43 +125,49 @@ exports.remove = async (req, res) => {
   try {
     const book = await Book.findById(req.params.id);
     if (!book) return res.status(404).json({ error: 'Not found' });
-    if (book.userId !== req.auth.userId)
+    if (book.userId !== req.auth.userId) {
       return res.status(403).json({ error: 'unauthorized request' });
+    }
 
     const filename = (book.imageUrl || '').split('/images/')[1];
     if (filename) {
       try {
         fs.unlinkSync(path.join('images', filename));
-      } catch (_) {}
+      } catch {}
     }
 
     await Book.deleteOne({ _id: req.params.id });
-    res.status(200).json({ message: 'Book deleted!' });
+    return res.status(200).json({ message: 'Book deleted!' });
   } catch (e) {
-    res.status(400).json(e);
+    return res.status(400).json(e);
   }
 };
 
 exports.rate = async (req, res) => {
   try {
-    const { userId, rating } = req.body;
-    const grade = Number(rating);
-    if (Number.isNaN(grade) || grade < 0 || grade > 5)
+    // Pour plus de sécurité on prend l’ID du token, mais on tolère le body si absent (compat front)
+    const userIdFromToken = req.auth?.userId;
+    const userId = userIdFromToken || req.body.userId;
+
+    const grade = Number(req.body.rating);
+    if (Number.isNaN(grade) || grade < 0 || grade > 5) {
       return res.status(400).json({ error: 'rating must be between 0 and 5' });
+    }
 
     const book = await Book.findById(req.params.id);
     if (!book) return res.status(404).json({ error: 'Not found' });
 
-    if (book.ratings.find((r) => r.userId === userId))
+    if (book.ratings.find((r) => r.userId === userId)) {
       return res.status(400).json({ error: 'user already rated this book' });
+    }
 
     book.ratings.push({ userId, grade });
     book.averageRating =
       book.ratings.reduce((a, r) => a + r.grade, 0) / book.ratings.length;
 
     await book.save();
-    res.status(200).json(book);
+    return res.status(200).json(book);
   } catch (e) {
-    res.status(400).json(e);
+    return res.status(400).json(e);
   }
 };
