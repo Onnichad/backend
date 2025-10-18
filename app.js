@@ -21,7 +21,7 @@ mongoose
 
 app.use(express.json());
 
-// CORS (autorise ton front, par défaut localhost:3000)
+// CORS (autorise le front, par défaut localhost:3000)
 app.use(
   cors({
     origin: process.env.ALLOWED_ORIGIN?.split(',') || '*',

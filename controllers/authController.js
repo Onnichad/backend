@@ -4,12 +4,12 @@ const User = require('../models/User');
 
 exports.signup = async (req, res) => {
   try {
-    const { email, password } = req.body || {};
+    const { email, password } = req.body || {}; //on déstructure avec fallback {} pour éviter une erreur si req.body est undefined.
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
-    const hash = await bcrypt.hash(password, 10);
+    const hash = await bcrypt.hash(password, 10); // 10 = nombre de salages + élevé = plus sécurisé mais plus lent
     const user = new User({ email, password: hash });
 
     await user.save();
@@ -27,10 +27,10 @@ exports.login = async (req, res) => {
   try {
     const { email, password } = req.body || {};
     if (!email || !password) {
-      return res.status(400).json({ error: 'Email and password are required' });
+      return res.status(400).json({ error: 'Email and password are required' }); //on embete pas db si les champs sont vides
     }
 
-    const user = await User.findOne({ email }).lean();
+    const user = await User.findOne({ email }).lean(); // lean() pour retourner un objet JS simple au lieu d'un document Mongoose
     if (!user) return res.status(401).json({ error: 'User not found' });
 
     const valid = await bcrypt.compare(password, user.password);

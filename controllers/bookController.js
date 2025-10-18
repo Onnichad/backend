@@ -1,4 +1,4 @@
-const fs = require('fs');
+const fs = require('fs'); // pour gérer les fichiers images sur le serveur
 const path = require('path');
 const Book = require('../models/Book');
 
@@ -28,7 +28,7 @@ exports.getOne = async (req, res) => {
 
 exports.getBestRating = async (req, res) => {
   try {
-    const books = await Book.find()
+    const books = await Book.find() //tri décroissant par averageRating, puis _id pour un ordre stable
       .sort({ averageRating: -1, _id: 1 })
       .limit(3)
       .lean();
@@ -40,7 +40,6 @@ exports.getBestRating = async (req, res) => {
 
 exports.create = async (req, res) => {
   try {
-    // Spécification: POST /api/books attend 'book' (JSON stringifié) + 'image' (file)
     if (!req.file) {
       return res.status(400).json({ error: 'image file is required' });
     }
@@ -52,7 +51,7 @@ exports.create = async (req, res) => {
       return res.status(400).json({ error: 'invalid book payload' });
     }
 
-    // Nettoyage des champs interdits
+    // Nettoyage des champs interdits pour éviter des détournements (usurpation d’owner, collisions d’id)
     delete bookObj._id;
     delete bookObj.userId;
 
@@ -162,7 +161,7 @@ exports.rate = async (req, res) => {
     }
 
     book.ratings.push({ userId, grade });
-    book.averageRating =
+    book.averageRating = //averageRating est stocké pour les tris rapides (évite un $avg à chaque lecture)
       book.ratings.reduce((a, r) => a + r.grade, 0) / book.ratings.length;
 
     await book.save();

@@ -10,7 +10,7 @@ const normalizePort = (val) => {
   return false;
 };
 
-// Par défaut 4000 (pour laisser 3000 au front en dev)
+// Par défaut 4000 (pour laisser 3000 au front )
 const port = normalizePort(process.env.PORT || '4000');
 app.set('port', port);
 

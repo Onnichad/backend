@@ -62,7 +62,7 @@ function uploadImage(field = 'image') {
         // Supprime l'original, garde WebP
         fs.unlinkSync(srcPath);
 
-        // Mets à jour req.file (utile dans le controller)
+        // Mets à jour req.file
         const stat = fs.statSync(outPath);
         req.file.filename = `${parsed.name}.webp`;
         req.file.path = outPath;
