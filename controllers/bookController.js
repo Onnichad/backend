@@ -28,7 +28,7 @@ exports.getOne = async (req, res) => {
 
 exports.getBestRating = async (req, res) => {
   try {
-    const books = await Book.find() //tri décroissant par averageRating, puis _id pour un ordre stable
+    const books = await Book.find() //tri décroissant par averageRating
       .sort({ averageRating: -1, _id: 1 })
       .limit(3)
       .lean();

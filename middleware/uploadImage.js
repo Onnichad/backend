@@ -27,7 +27,7 @@ const storage = multer.diskStorage({
   },
 });
 
-// Optionnel : limite & filtrage
+//limite & filtrage
 const limits = { fileSize: 10 * 1024 * 1024 }; // 10 MB
 const fileFilter = (req, file, cb) => {
   if (!MIME_TYPES[file.mimetype]) {
